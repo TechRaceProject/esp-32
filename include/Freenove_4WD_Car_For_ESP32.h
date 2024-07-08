@@ -64,6 +64,8 @@ void Car_Select(int mode);  ////select it to run car:0-command car，1-light car
 /////////////////////Ultrasonic drive area/////////////////////////////////
 void Ultrasonic_Setup(void);//Ultrasonic initialization
 float Get_Sonar(void);//Obtain ultrasonic distance data
+void AutoMove(void);
+
 
 #endif
 

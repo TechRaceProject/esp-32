@@ -377,7 +377,22 @@ void Car_Select(int mode)
   }
 }
 
-//
+///////// AUTO MODE ///////////////
+
+void AutoMove()
+{
+    while (true) {
+        float distance = Get_Sonar();
+
+        if (distance < 20.0) {  // Stop if obstacle is closer than 20 cm
+            Motor_Move(0, 0, 0, 0);
+        } else {
+            Motor_Move(1000, 1000, 1000, 1000);  // Move forward
+        }
+
+        delay(100);  // Delay to avoid CPU overload
+    }
+}
 
 /////////////////////Ultrasonic drive area//////////////////////////////
 #define PIN_SONIC_TRIG    12            //define Trig pin
