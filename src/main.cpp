@@ -7,6 +7,7 @@
 #include "Freenove_4WD_Car_Emotion.h"
 #include "Freenove_4WD_Car_WS2812.h"
 #include "Freenove_4WD_Car_For_ESP32.h"
+#include "Freenove_4WD_Websocket.h"
 #include <PubSubClient.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
@@ -284,10 +285,10 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     switch (type)
     {
     case WS_EVT_CONNECT:
-        Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+        HandleWebSocketConnectionSuccess(client->id(), client->remoteIP().toString());
         break;
     case WS_EVT_DISCONNECT:
-        Serial.printf("WebSocket client #%u disconnected\n", client->id());
+        HandleWebSocketDisconnection(client->id());
         break;
     case WS_EVT_DATA:
         handleWebSocketMessage(arg, data, len);

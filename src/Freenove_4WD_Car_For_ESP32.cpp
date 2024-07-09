@@ -16,8 +16,8 @@ void PCA9685_Setup(void)
   pca9685.setupSingleDevice(Wire, PCA9685_ADDRESS);
   pca9685.setToFrequency(FREQUENCY);
   Motor_Move(0, 0, 0, 0);
-  Servo_1_Angle(90);
-  Servo_2_Angle(90);
+  Servo_1_Angle(60);
+  Servo_2_Angle(60);
 }
 
 // Set the rotation parameters of servo 1, and the parameters are 0-180 degrees
