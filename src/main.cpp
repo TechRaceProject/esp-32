@@ -125,6 +125,30 @@ void setup()
 
     initWebSocket();
 
+    // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+    //           { 
+    //             camera_fb_t *fb = NULL;
+    //             fb = esp_camera_fb_get();
+    //                     if (fb != NULL)
+    //                     {
+    //                         uint8_t slen[4];
+    //                         slen[0] = fb->len >> 0;
+    //                         slen[1] = fb->len >> 8;
+    //                         slen[2] = fb->len >> 16;
+    //                         slen[3] = fb->len >> 24;
+    //                         AsyncResponseStream *response = request->beginResponseStream("image");
+    //                         // response->write(slen, 4);
+    //                         response->write(fb->buf, fb->len);
+    //                         request->send(response);
+    //                         // client.write(slen, 4);
+    //                         // client.write(fb->buf, fb->len);
+    //                         // request->send_P(200, "application/octet-stream", fb->buf, fb->len);
+    //                         // request->send(fb->buf, "application/octet-stream", fb->len);
+    //                         // Serial.println("Camera send");
+    //                         esp_camera_fb_return(fb);
+    //                         fb = NULL;
+    //                     } });
+
     server.begin();
 
     // Init the state of the car
@@ -210,6 +234,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 {
     AwsFrameInfo *info = (AwsFrameInfo *)arg;
 
+    // Serial.println((char *)data);
+
     if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)
     {
         data[len] = 0;
@@ -227,7 +253,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 
         int cmd = doc["cmd"];
 
-        if (cmd == 1) // Example move command
+        if (cmd == 1)
         {
             JsonArray data = doc["data"];
             int data_0 = data[0];
@@ -292,7 +318,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             bool video_activation = doc["data"] == 1;
             videoFlag = video_activation;
         }
-        else if (cmd == 10) // cmd_start
+        else if (cmd == 20) // cmd start race
         {
             startTime = millis();
 
@@ -319,7 +345,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 
             newMqttMessage = true;
         }
-        else if (cmd == 11) // cmd_end
+        // cmd stop (mais à changer pour changer la logique du stop)
+        else if (cmd == 21)
         {
             endTime = millis();
 
@@ -389,6 +416,45 @@ void reconnect()
     }
 }
 
+// void loopTask_Camera(void *pvParameters)
+// {
+//     while (1)
+//     {
+//         WiFiClient wf_client = server_Camera.available(); // listen for incoming clients
+//         if (wf_client)
+//         { // if you get a client
+//             Serial.println("Camera_Server connected to a client.");
+//             if (wf_client.connected())
+//             {
+//                 camera_fb_t *fb = NULL;
+//                 while (wf_client.connected())
+//                 { // loop while the client's connected
+//                     if (videoFlag == 1)
+//                     {
+//                         fb = esp_camera_fb_get();
+//                         if (fb != NULL)
+//                         {
+//                             uint8_t slen[4];
+//                             slen[0] = fb->len >> 0;
+//                             slen[1] = fb->len >> 8;
+//                             slen[2] = fb->len >> 16;
+//                             slen[3] = fb->len >> 24;
+//                             wf_client.write(slen, 4);
+//                             wf_client.write(fb->buf, fb->len);
+//                             Serial.println("Camera send");
+//                             esp_camera_fb_return(fb);
+//                         }
+//                     }
+//                 }
+//                 // close the connection:
+//                 wf_client.stop();
+//                 Serial.println("Camera Client Disconnected.");
+//                 ESP.restart();
+//             }
+//         }
+//     }
+// }
+
 void loopTask_Camera(void *pvParameters)
 {
     while (1)
@@ -415,6 +481,14 @@ void loopTask_Camera(void *pvParameters)
                             wf_client.write(size_buf);
                             wf_client.write(fb->buf, fb->len);
 
+                            // uint8_t slen[4];
+                            // slen[0] = fb->len >> 0;
+                            // slen[1] = fb->len >> 8;
+                            // slen[2] = fb->len >> 16;
+                            // slen[3] = fb->len >> 24;
+                            // wf_client.write(slen, 4);
+                            // wf_client.write(fb->buf, fb->len);
+                            // Serial.println("Camera send");
                             esp_camera_fb_return(fb);
                         }
                     }
@@ -422,6 +496,7 @@ void loopTask_Camera(void *pvParameters)
                 // close the connection:
                 wf_client.stop();
                 Serial.println("Camera Client Disconnected.");
+                // ESP.restart();
             }
         }
     }
