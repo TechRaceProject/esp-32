@@ -53,6 +53,25 @@ int sensor_v;             // Int cast of track sensor data
 char buff[6];             // Buffer to store the battery voltage data
 char ultrasonic_buff[10]; // Buffer to store the Ultrasonic data
 
+long startTime = 0;
+long endTime = 0;
+float constantSpeed = 0.0;
+long commandDuration = 0;
+bool newMqttMessage = false;
+bool newDistanceMessage = false;
+float distanceCar = 0.0;
+
+// Vitesse constante m/s en fonction de la puissance des roues
+float getConstantSpeed(int power) {
+    if (power == 1000) return 0.357;
+
+    if (power == 2000) return 0.556;
+    
+    if (power >= 3000) return 0.667;
+    
+    return 0.0;
+}
+
 // put function declarations here:
 void WiFi_Init();
 void loopTask_Camera(void *pvParameters);
@@ -73,8 +92,6 @@ void WiFi_Init()
 
 void setup()
 {
-    // delay(5000);
-
     Serial.begin(115200);
     Serial.setDebugOutput(true);
 
@@ -108,30 +125,6 @@ void setup()
 
     initWebSocket();
 
-    // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-    //           { 
-    //             camera_fb_t *fb = NULL;
-    //             fb = esp_camera_fb_get();
-    //                     if (fb != NULL)
-    //                     {
-    //                         uint8_t slen[4];
-    //                         slen[0] = fb->len >> 0;
-    //                         slen[1] = fb->len >> 8;
-    //                         slen[2] = fb->len >> 16;
-    //                         slen[3] = fb->len >> 24;
-    //                         AsyncResponseStream *response = request->beginResponseStream("image");
-    //                         // response->write(slen, 4);
-    //                         response->write(fb->buf, fb->len);
-    //                         request->send(response);
-    //                         // client.write(slen, 4);
-    //                         // client.write(fb->buf, fb->len);
-    //                         // request->send_P(200, "application/octet-stream", fb->buf, fb->len);
-    //                         // request->send(fb->buf, "application/octet-stream", fb->len);
-    //                         // Serial.println("Camera send");
-    //                         esp_camera_fb_return(fb);
-    //                         fb = NULL;
-    //                     } });
-
     server.begin();
 
     // Init the state of the car
@@ -154,6 +147,32 @@ void loop()
     }
     client.loop();
 
+    if (newMqttMessage)
+    {
+        char message[20];
+
+        ltoa(commandDuration, message, 10);
+
+        const char* topic = "esp32/course_time";
+
+        client.publish(topic, message);
+
+        newMqttMessage = false;
+    }
+
+    if (newDistanceMessage)
+    {
+        char message[20];
+
+        dtostrf(distanceCar, 5, 2, message);
+
+        const char* topic = "esp32/distance";
+
+        client.publish(topic, message);
+
+        newDistanceMessage = false;
+    }
+    
     long now = millis();
     if (now - last_message > mqtt_interval_ms)
     {
@@ -191,8 +210,6 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 {
     AwsFrameInfo *info = (AwsFrameInfo *)arg;
 
-    // Serial.println((char *)data);
-
     if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)
     {
         data[len] = 0;
@@ -210,7 +227,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 
         int cmd = doc["cmd"];
 
-        if (1 == cmd)
+        if (cmd == 1) // Example move command
         {
             JsonArray data = doc["data"];
             int data_0 = data[0];
@@ -275,6 +292,49 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             bool video_activation = doc["data"] == 1;
             videoFlag = video_activation;
         }
+        else if (cmd == 10) // cmd_start
+        {
+            startTime = millis();
+
+            JsonArray data = doc["data"];
+            
+            int data_0 = data[0];
+            
+            int data_1 = data[1];
+            
+            int data_2 = data[2];
+            
+            int data_3 = data[3];
+
+            Motor_Move(data_0, data_1, data_2, data_3);
+
+            int maxPower = max(max(data_0, data_1), max(data_2, data_3));
+
+            constantSpeed = getConstantSpeed(maxPower);
+
+            //topic pour la vitesse constante
+            char message[20];
+            dtostrf(constantSpeed, 5, 2, message);
+            client.publish("esp32/speed", message); 
+
+            newMqttMessage = true;
+        }
+        else if (cmd == 11) // cmd_end
+        {
+            endTime = millis();
+
+            Motor_Move(0, 0, 0, 0);
+
+            // Temps de la course en ms
+            commandDuration = endTime - startTime;
+
+            // Distance parcourue par la voiture en mètre
+            distanceCar = constantSpeed * (commandDuration / 1000.0);
+
+            newMqttMessage = true;
+
+            newDistanceMessage = true;
+        }
 
         notifyClients();
     }
@@ -329,45 +389,6 @@ void reconnect()
     }
 }
 
-// void loopTask_Camera(void *pvParameters)
-// {
-//     while (1)
-//     {
-//         WiFiClient wf_client = server_Camera.available(); // listen for incoming clients
-//         if (wf_client)
-//         { // if you get a client
-//             Serial.println("Camera_Server connected to a client.");
-//             if (wf_client.connected())
-//             {
-//                 camera_fb_t *fb = NULL;
-//                 while (wf_client.connected())
-//                 { // loop while the client's connected
-//                     if (videoFlag == 1)
-//                     {
-//                         fb = esp_camera_fb_get();
-//                         if (fb != NULL)
-//                         {
-//                             uint8_t slen[4];
-//                             slen[0] = fb->len >> 0;
-//                             slen[1] = fb->len >> 8;
-//                             slen[2] = fb->len >> 16;
-//                             slen[3] = fb->len >> 24;
-//                             wf_client.write(slen, 4);
-//                             wf_client.write(fb->buf, fb->len);
-//                             Serial.println("Camera send");
-//                             esp_camera_fb_return(fb);
-//                         }
-//                     }
-//                 }
-//                 // close the connection:
-//                 wf_client.stop();
-//                 Serial.println("Camera Client Disconnected.");
-//                 ESP.restart();
-//             }
-//         }
-//     }
-// }
-
 void loopTask_Camera(void *pvParameters)
 {
     while (1)
@@ -394,14 +415,6 @@ void loopTask_Camera(void *pvParameters)
                             wf_client.write(size_buf);
                             wf_client.write(fb->buf, fb->len);
 
-                            // uint8_t slen[4];
-                            // slen[0] = fb->len >> 0;
-                            // slen[1] = fb->len >> 8;
-                            // slen[2] = fb->len >> 16;
-                            // slen[3] = fb->len >> 24;
-                            // wf_client.write(slen, 4);
-                            // wf_client.write(fb->buf, fb->len);
-                            // Serial.println("Camera send");
                             esp_camera_fb_return(fb);
                         }
                     }
@@ -409,7 +422,6 @@ void loopTask_Camera(void *pvParameters)
                 // close the connection:
                 wf_client.stop();
                 Serial.println("Camera Client Disconnected.");
-                // ESP.restart();
             }
         }
     }
