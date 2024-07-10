@@ -53,6 +53,25 @@ int sensor_v;             // Int cast of track sensor data
 char buff[6];             // Buffer to store the battery voltage data
 char ultrasonic_buff[10]; // Buffer to store the Ultrasonic data
 
+long startTime = 0;
+long endTime = 0;
+float constantSpeed = 0.0;
+long commandDuration = 0;
+bool newMqttMessage = false;
+bool newDistanceMessage = false;
+float distanceCar = 0.0;
+
+// Vitesse constante m/s en fonction de la puissance des roues
+float getConstantSpeed(int power) {
+    if (power == 1000) return 0.357;
+
+    if (power == 2000) return 0.556;
+    
+    if (power >= 3000) return 0.667;
+    
+    return 0.0;
+}
+
 // put function declarations here:
 void WiFi_Init();
 void loopTask_Camera(void *pvParameters);
@@ -73,8 +92,6 @@ void WiFi_Init()
 
 void setup()
 {
-    // delay(5000);
-
     Serial.begin(115200);
     Serial.setDebugOutput(true);
 
@@ -154,6 +171,32 @@ void loop()
     }
     client.loop();
 
+    if (newMqttMessage)
+    {
+        char message[20];
+
+        ltoa(commandDuration, message, 10);
+
+        const char* topic = "esp32/course_time";
+
+        client.publish(topic, message);
+
+        newMqttMessage = false;
+    }
+
+    if (newDistanceMessage)
+    {
+        char message[20];
+
+        dtostrf(distanceCar, 5, 2, message);
+
+        const char* topic = "esp32/distance";
+
+        client.publish(topic, message);
+
+        newDistanceMessage = false;
+    }
+    
     long now = millis();
     if (now - last_message > mqtt_interval_ms)
     {
@@ -210,7 +253,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 
         int cmd = doc["cmd"];
 
-        if (1 == cmd)
+        if (cmd == 1)
         {
             JsonArray data = doc["data"];
             int data_0 = data[0];
@@ -274,6 +317,50 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         {
             bool video_activation = doc["data"] == 1;
             videoFlag = video_activation;
+        }
+        else if (cmd == 20) // cmd start race
+        {
+            startTime = millis();
+
+            JsonArray data = doc["data"];
+            
+            int data_0 = data[0];
+            
+            int data_1 = data[1];
+            
+            int data_2 = data[2];
+            
+            int data_3 = data[3];
+
+            Motor_Move(data_0, data_1, data_2, data_3);
+
+            int maxPower = max(max(data_0, data_1), max(data_2, data_3));
+
+            constantSpeed = getConstantSpeed(maxPower);
+
+            //topic pour la vitesse constante
+            char message[20];
+            dtostrf(constantSpeed, 5, 2, message);
+            client.publish("esp32/speed", message); 
+
+            newMqttMessage = true;
+        }
+        // cmd stop (mais à changer pour changer la logique du stop)
+        else if (cmd == 21)
+        {
+            endTime = millis();
+
+            Motor_Move(0, 0, 0, 0);
+
+            // Temps de la course en ms
+            commandDuration = endTime - startTime;
+
+            // Distance parcourue par la voiture en mètre
+            distanceCar = constantSpeed * (commandDuration / 1000.0);
+
+            newMqttMessage = true;
+
+            newDistanceMessage = true;
         }
 
         notifyClients();
