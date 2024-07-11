@@ -285,6 +285,15 @@ void loop()
     Emotion_Show(emotion_task_mode); // Led matrix display function
     WS2812_Show(ws2812_task_mode);   // Car color lights display function
 
+    Track_Car(carFlag);
+
+//     float batteryPercentage = Get_Battery_Percentage();
+//   Serial.print("Battery Percentage: ");
+//   Serial.print(batteryPercentage);
+//   Serial.println("%");
+//   delay(1000); 
+    
+
     //The MQTT part
      if (!client.connected())
      {
@@ -356,9 +365,45 @@ void notifyClients()
 }
 TaskHandle_t AutoMoveTask;
 
+
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
+
+// void AutoMoveTaskCode(void *pvParameters)
+// {
+//     const int consecutiveReadings = 2;  // Nombre de lectures consécutives nécessaires pour confirmer une absence d'obstacle
+//     int noObstacleCounter = 0;  // Compteur de lectures consécutives sans obstacle
+
+//     while (true)
+//     {
+//         float distance = Get_Sonar();
+
+//         if (distance < 25.0)
+//         {
+//             Serial.print("Obstacle detected! Distance: ");
+//             Serial.print(distance);
+//             Serial.println(" cm. Stopping the vehicle.");
+//             Motor_Move(0, 0, 0, 0);  // Stop the vehicle
+//             noObstacleCounter = 0;  // Réinitialiser le compteur car un obstacle est détecté
+//         }
+//         else
+//         {
+//             noObstacleCounter++;
+//             if (noObstacleCounter >= consecutiveReadings)
+//             {
+//                 Serial.print("No obstacle. Distance: ");
+//                 Serial.print(distance);
+//                 Serial.println(" cm. Moving forward.");
+//                 Motor_Move(1000, 1000, 1000, 1000);  // Move forward
+//                 noObstacleCounter = 0;  // Réinitialiser le compteur après avoir bougé
+//             }
+//         }
+
+//         delay(300);  // Shorter delay to check the distance more frequently
+//     }
+// }
+
 
 void AutoMoveTaskCode(void *pvParameters)
 {
@@ -367,6 +412,7 @@ void AutoMoveTaskCode(void *pvParameters)
 
     while (true)
     {
+        // Vérification des obstacles
         float distance = Get_Sonar();
 
         if (distance < 25.0)
@@ -382,10 +428,9 @@ void AutoMoveTaskCode(void *pvParameters)
             noObstacleCounter++;
             if (noObstacleCounter >= consecutiveReadings)
             {
-                Serial.print("No obstacle. Distance: ");
-                Serial.print(distance);
-                Serial.println(" cm. Moving forward.");
-                Motor_Move(1000, 1000, 1000, 1000);  // Move forward
+                // Si aucun obstacle n'est détecté, activer le suivi de ligne
+                Serial.println("No obstacle detected. Activating line tracking.");
+                Track_Car(1);  // Activer le suivi de ligne
                 noObstacleCounter = 0;  // Réinitialiser le compteur après avoir bougé
             }
         }
@@ -393,6 +438,9 @@ void AutoMoveTaskCode(void *pvParameters)
         delay(300);  // Shorter delay to check the distance more frequently
     }
 }
+
+
+// Déclarations globales
 
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -485,69 +533,30 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         {
             bool video_activation = doc["data"] == 1;
             videoFlag = video_activation;
-        }
-       else if (10 == cmd)
-{
-    bool enable_auto_mode = doc["data"] == 1;
-    if (enable_auto_mode) {
-        xTaskCreatePinnedToCore(
-            AutoMoveTaskCode,   // Function that implements the task.
-            "AutoMoveTask",     // Name of the task.
-            10000,              // Stack size in words.
-            NULL,               // Task input parameter.
-            1,                  // Priority of the task.
-            &AutoMoveTask,      // Task handle.
-            0);                 // Core where the task should run.
-    } else {
-        vTaskDelete(AutoMoveTask);
-        Motor_Move(0, 0, 0, 0);  // Stop the vehicle
-    }
-    
-}
-
-        else if (cmd == 20) // cmd start race
+        } 
+        else if (10 == cmd) 
         {
-            startTime = millis();
+            bool enable_auto_mode = doc["data"] == 1;
 
-            JsonArray data = doc["data"];
-            
-            int data_0 = data[0];
-            
-            int data_1 = data[1];
-            
-            int data_2 = data[2];
-            
-            int data_3 = data[3];
-
-            Motor_Move(data_0, data_1, data_2, data_3);
-
-            int maxPower = max(max(data_0, data_1), max(data_2, data_3));
-
-            constantSpeed = getConstantSpeed(maxPower);
-
-            //topic pour la vitesse constante
-            char message[20];
-            dtostrf(constantSpeed, 5, 2, message);
-            client.publish("esp32/speed", message); 
-
-            newMqttMessage = true;
+            if (enable_auto_mode) {
+                xTaskCreatePinnedToCore(
+                    AutoMoveTaskCode,   // Function that implements the task.
+                    "AutoMoveTask",     // Name of the task.
+                    10000,              // Stack size in words.
+                    NULL,               // Task input parameter.
+                    1,                  // Priority of the task.
+                    &AutoMoveTask,      // Task handle.
+                    0
+                );                 // Core where the task should run.
+            } else {
+                vTaskDelete(AutoMoveTask);
+                Motor_Move(0, 0, 0, 0);  // Stop the vehicle
+            }
         }
-        // cmd stop (mais à changer pour changer la logique du stop)
-        else if (cmd == 21)
+        else if (11 == cmd)
         {
-            endTime = millis();
-
-            Motor_Move(0, 0, 0, 0);
-
-            // Temps de la course en ms
-            commandDuration = endTime - startTime;
-
-            // Distance parcourue par la voiture en mètre
-            distanceCar = constantSpeed * (commandDuration / 1000.0);
-
-            newMqttMessage = true;
-
-            newDistanceMessage = true;
+            int car_mode = doc["data"] == 1;
+            Car_SetMode(car_mode);
         }
 
         notifyClients();

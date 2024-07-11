@@ -229,6 +229,8 @@ void Buzzer_Alert(int beat, int rebeat)
 #define PIN_BATTERY 32          // Set the battery detection voltage pin
 float batteryVoltage = 0;       // Battery voltage variable
 float batteryCoefficient = 3.7; // Set the proportional coefficient
+const float minVoltage = 3.0;   // Minimum battery voltage
+const float maxVoltage = 4.2;   // Maximum battery voltage
 
 // Gets the battery ADC value
 int Get_Battery_Voltage_ADC(void)
@@ -245,6 +247,19 @@ float Get_Battery_Voltage(void)
   int batteryADC = Get_Battery_Voltage_ADC();
   batteryVoltage = (batteryADC / 4096.0 * 3.9) * batteryCoefficient;
   return batteryVoltage;
+}
+
+// Convert battery voltage to percentage
+float Get_Battery_Percentage(void)
+{
+  float voltage = Get_Battery_Voltage();
+  // Ensure the voltage is within the expected range
+  if (voltage < minVoltage) voltage = minVoltage;
+  if (voltage > maxVoltage) voltage = maxVoltage;
+  
+  // Calculate the percentage
+  float percentage = ((voltage - minVoltage) / (maxVoltage - minVoltage)) * 100;
+  return percentage;
 }
 
 /////////////////////Photosensitive drive area//////////////////////////
@@ -325,6 +340,12 @@ void Track_Car(int mode)
   if (mode == 1)
   {
     Track_Read();
+
+    
+    Serial.print("TRACK FUNC");
+    Serial.println(sensorValue[3]);
+
+
     switch (sensorValue[3])
     {
     case 2: // 010
@@ -384,20 +405,20 @@ void Car_Select(int mode)
 
 ///////// AUTO MODE ///////////////
 
-void AutoMove()
-{
-    while (true) {
-        float distance = Get_Sonar();
+// void AutoMove()
+// {
+//     while (true) {
+//         float distance = Get_Sonar();
 
-        if (distance < 20.0) {  // Stop if obstacle is closer than 20 cm
-            Motor_Move(0, 0, 0, 0);
-        } else {
-            Motor_Move(800, 800, 800, 800);  // Move forward
-        }
+//         if (distance < 20.0) {  // Stop if obstacle is closer than 20 cm
+//             Motor_Move(0, 0, 0, 0);
+//         } else {
+//             Motor_Move(800, 800, 800, 800);  // Move forward
+//         }
 
-        delay(350);  // Delay to avoid CPU overload
-    }
-}
+//         delay(350);  // Delay to avoid CPU overload
+//     }
+// }
 
 /////////////////////Ultrasonic drive area//////////////////////////////
 #define PIN_SONIC_TRIG    12            //define Trig pin

@@ -41,8 +41,9 @@ void Buzzer_Alert(int beat, int rebeat);          // Buzzer Alert function
 void Buzzer_Variable(bool enable, int frequency); // Buzzer variable frequency(Parameter 1, enabling signal, parameter 2, frequency value)
 
 ////////////////////Battery drive area/////////////////////////////////////
-int Get_Battery_Voltage_ADC(void); // Gets the battery ADC value
-float Get_Battery_Voltage(void);   // Get the battery voltage value
+int Get_Battery_Voltage_ADC(void);    // Gets the battery ADC value
+float Get_Battery_Voltage(void);      // Get the battery voltage value
+float Get_Battery_Percentage(void);   // Get the battery percentage
 
 ////////////////////Photosensitive drive area//////////////////////////////
 extern int light_init_value;  // Set the car's initial environment ADC value
@@ -62,11 +63,8 @@ void Car_SetMode(int mode); // set the car mode
 void Car_Select(int mode);  ////select it to run car:0-command car，1-light car ，2-track car
 
 /////////////////////Ultrasonic drive area/////////////////////////////////
-void Ultrasonic_Setup(void);//Ultrasonic initialization
-float Get_Sonar(void);//Obtain ultrasonic distance data
+void Ultrasonic_Setup(void); // Ultrasonic initialization
+float Get_Sonar(void);       // Obtain ultrasonic distance data
 void AutoMove(void);
 
-
 #endif
-
-//
