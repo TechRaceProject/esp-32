@@ -63,13 +63,9 @@ float distanceCar = 0.0;
 
 // Vitesse constante m/s en fonction de la puissance des roues
 float getConstantSpeed(int power) {
-    if (power == 1000) return 0.357;
+    float singleContantSpeed = 0.357 / 1000;
 
-    if (power == 2000) return 0.556;
-    
-    if (power >= 3000) return 0.667;
-    
-    return 0.0;
+    return singleContantSpeed * power;
 }
 
 // put function declarations here:
