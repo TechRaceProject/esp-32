@@ -306,11 +306,11 @@ void Light_Car(int mode)
 #define PCF8574_ADDRESS 0x20 // Tracking module IIC address
 #define PCF8574_SDA 13       // Define the SDA pin number
 #define PCF8574_SCL 14       // Define the SCL pin number
-#define SPEED_LV4 (1500)
-#define SPEED_LV3 (1000)
-#define SPEED_LV2 (1200)
-#define SPEED_LV1 (700)
+#define SPEED_LV4 (2500)
+#define SPEED_LV3 (2000)
+#define SPEED_LV1 (1000)
 
+//#define SPEED_LV2 (1200)
 unsigned char sensorValue[4] = {0};
 PCF8574 TRACK_SENSOR(PCF8574_ADDRESS);
 
@@ -329,7 +329,6 @@ void Track_Read(void)
   sensorValue[2] = (sensorValue[3] & 0x04) >> 2;  // On the right - 4
 }
 
-///////////// Track Car ////////////////////
 ///////////// Track Car ////////////////////
 
 void Track_Car(int mode)
