@@ -306,10 +306,10 @@ void Light_Car(int mode)
 #define PCF8574_ADDRESS 0x20 // Tracking module IIC address
 #define PCF8574_SDA 13       // Define the SDA pin number
 #define PCF8574_SCL 14       // Define the SCL pin number
-#define SPEED_LV4 (4000)
-#define SPEED_LV3 (3000)
-#define SPEED_LV2 (2500)
-#define SPEED_LV1 (1500)
+#define SPEED_LV4 (1500)
+#define SPEED_LV3 (1000)
+#define SPEED_LV2 (1200)
+#define SPEED_LV1 (700)
 
 unsigned char sensorValue[4] = {0};
 PCF8574 TRACK_SENSOR(PCF8574_ADDRESS);
@@ -358,12 +358,12 @@ void Track_Car(int mode)
     case 1: // 001
     case 3: // 011
       Emotion_SetMode(4);
-      Motor_Move(-SPEED_LV3, -SPEED_LV3, SPEED_LV4, SPEED_LV4); // Turn Left
+      Motor_Move(SPEED_LV4, SPEED_LV4, -SPEED_LV3, -SPEED_LV3); // Turn Right
       break;
     case 4: // 100
     case 6: // 110
       Emotion_SetMode(5);
-      Motor_Move(SPEED_LV4, SPEED_LV4, -SPEED_LV3, -SPEED_LV3); // Turn Right
+      Motor_Move(-SPEED_LV3, -SPEED_LV3, SPEED_LV4, SPEED_LV4); // Turn Left
       break;
 
     default:

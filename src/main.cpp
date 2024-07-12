@@ -16,6 +16,8 @@
 
 
 #define STREAM_CONTENT_BOUNDARY "123456789000000000000987654321"
+#define OBSTACLE_DISTANCE      40
+#define OBSTACLE_DISTANCE_LOW  20
 
 // Ressources
 // https://randomnerdtutorials.com/esp32-websocket-server-arduino/#1
@@ -26,7 +28,7 @@
 char *ssid_wifi = "******"; // Le nom du réseau WiFi
 char *password_wifi = "******"; // Le password du WiFi
 
-const char *mqtt_server = "0.0.0.0"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
+const char *mqtt_server = "192.168.194.67"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
 const int mqtt_interval_ms = 5000;          // L'interval en ms entre deux envois de données
 
 IPAddress localIP(0, 0, 0, 0);  // l'IP que vous voulez donner à votre voiture (faire attention a ce que les 3 premieres partie de l'ip soit toujours identique à celle de votre machine)
@@ -287,11 +289,11 @@ void loop()
 
     Track_Car(carFlag);
 
-//     float batteryPercentage = Get_Battery_Percentage();
-//   Serial.print("Battery Percentage: ");
-//   Serial.print(batteryPercentage);
-//   Serial.println("%");
-//   delay(1000); 
+    //     float batteryPercentage = Get_Battery_Percentage();
+    //   Serial.print("Battery Percentage: ");
+    //   Serial.print(batteryPercentage);
+    //   Serial.println("%");
+    //   delay(1000); 
     
 
     //The MQTT part
@@ -366,6 +368,7 @@ void notifyClients()
 TaskHandle_t AutoMoveTask;
 
 
+
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -417,6 +420,7 @@ void AutoMoveTaskCode(void *pvParameters)
 
         if (distance < 25.0)
         {
+            Car_SetMode(0); // arrete le vehicule si obstacle detecté
             Serial.print("Obstacle detected! Distance: ");
             Serial.print(distance);
             Serial.println(" cm. Stopping the vehicle.");
@@ -430,12 +434,15 @@ void AutoMoveTaskCode(void *pvParameters)
             {
                 // Si aucun obstacle n'est détecté, activer le suivi de ligne
                 Serial.println("No obstacle detected. Activating line tracking.");
-                Track_Car(1);  // Activer le suivi de ligne
+                Car_SetMode(1);
+                //Track_Car(1);
+
+                
                 noObstacleCounter = 0;  // Réinitialiser le compteur après avoir bougé
             }
         }
 
-        delay(300);  // Shorter delay to check the distance more frequently
+        delay(200);  // Shorter delay to check the distance more frequently
     }
 }
 
@@ -550,7 +557,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
                 );                 // Core where the task should run.
             } else {
                 vTaskDelete(AutoMoveTask);
-                Motor_Move(0, 0, 0, 0);  // Stop the vehicle
+                Car_SetMode(0);
+                // Motor_Move(0, 0, 0, 0);  // Stop the vehicle
             }
         }
         else if (11 == cmd)
