@@ -229,6 +229,8 @@ void Buzzer_Alert(int beat, int rebeat)
 #define PIN_BATTERY 32          // Set the battery detection voltage pin
 float batteryVoltage = 0;       // Battery voltage variable
 float batteryCoefficient = 3.7; // Set the proportional coefficient
+const float minVoltage = 3.0;   // Minimum battery voltage
+const float maxVoltage = 4.2;   // Maximum battery voltage
 
 // Gets the battery ADC value
 int Get_Battery_Voltage_ADC(void)
@@ -245,6 +247,19 @@ float Get_Battery_Voltage(void)
   int batteryADC = Get_Battery_Voltage_ADC();
   batteryVoltage = (batteryADC / 4096.0 * 3.9) * batteryCoefficient;
   return batteryVoltage;
+}
+
+// Convert battery voltage to percentage
+float Get_Battery_Percentage(void)
+{
+  float voltage = Get_Battery_Voltage();
+  // Ensure the voltage is within the expected range
+  if (voltage < minVoltage) voltage = minVoltage;
+  if (voltage > maxVoltage) voltage = maxVoltage;
+  
+  // Calculate the percentage
+  float percentage = ((voltage - minVoltage) / (maxVoltage - minVoltage)) * 100;
+  return percentage;
 }
 
 /////////////////////Photosensitive drive area//////////////////////////
@@ -291,11 +306,11 @@ void Light_Car(int mode)
 #define PCF8574_ADDRESS 0x20 // Tracking module IIC address
 #define PCF8574_SDA 13       // Define the SDA pin number
 #define PCF8574_SCL 14       // Define the SCL pin number
-#define SPEED_LV4 (4000)
-#define SPEED_LV3 (3000)
-#define SPEED_LV2 (2500)
-#define SPEED_LV1 (1500)
+#define SPEED_LV4 (2500)
+#define SPEED_LV3 (2000)
+#define SPEED_LV1 (1000)
 
+//#define SPEED_LV2 (1200)
 unsigned char sensorValue[4] = {0};
 PCF8574 TRACK_SENSOR(PCF8574_ADDRESS);
 
@@ -314,12 +329,19 @@ void Track_Read(void)
   sensorValue[2] = (sensorValue[3] & 0x04) >> 2;  // On the right - 4
 }
 
-// Track Car
+///////////// Track Car ////////////////////
+
 void Track_Car(int mode)
 {
   if (mode == 1)
   {
     Track_Read();
+
+    
+    Serial.print("TRACK FUNC");
+    Serial.println(sensorValue[3]);
+
+
     switch (sensorValue[3])
     {
     case 2: // 010
@@ -335,12 +357,12 @@ void Track_Car(int mode)
     case 1: // 001
     case 3: // 011
       Emotion_SetMode(4);
-      Motor_Move(-SPEED_LV3, -SPEED_LV3, SPEED_LV4, SPEED_LV4); // Turn Left
+      Motor_Move(SPEED_LV4, SPEED_LV4, -SPEED_LV3, -SPEED_LV3); // Turn Right
       break;
     case 4: // 100
     case 6: // 110
       Emotion_SetMode(5);
-      Motor_Move(SPEED_LV4, SPEED_LV4, -SPEED_LV3, -SPEED_LV3); // Turn Right
+      Motor_Move(-SPEED_LV3, -SPEED_LV3, SPEED_LV4, SPEED_LV4); // Turn Left
       break;
 
     default:
@@ -377,7 +399,6 @@ void Car_Select(int mode)
   }
 }
 
-//
 
 /////////////////////Ultrasonic drive area//////////////////////////////
 #define PIN_SONIC_TRIG    12            //define Trig pin

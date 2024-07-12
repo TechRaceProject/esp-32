@@ -14,7 +14,10 @@
 #include <ArduinoJson.h>
 #include <limits.h>
 
+
 #define STREAM_CONTENT_BOUNDARY "123456789000000000000987654321"
+#define OBSTACLE_DISTANCE      40
+#define OBSTACLE_DISTANCE_LOW  20
 
 // Ressources
 // https://randomnerdtutorials.com/esp32-websocket-server-arduino/#1
@@ -25,7 +28,7 @@
 char *ssid_wifi = "******"; // Le nom du réseau WiFi
 char *password_wifi = "******"; // Le password du WiFi
 
-const char *mqtt_server = "0.0.0.0"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
+const char *mqtt_server = "192.168.194.67"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
 const int mqtt_interval_ms = 5000;          // L'interval en ms entre deux envois de données
 
 IPAddress localIP(0, 0, 0, 0);  // l'IP que vous voulez donner à votre voiture (faire attention a ce que les 3 premieres partie de l'ip soit toujours identique à celle de votre machine)
@@ -85,11 +88,123 @@ void WiFi_Init()
     password_AP = "Sunshine";        // Set your AP password for ESP32 to Sunshine
     frame_size = FRAMESIZE_CIF;      // 400*296
 }
+// void printWiFiStatus() {
+//     Serial.print("SSID: ");
+//     Serial.println(WiFi.SSID());
+
+//     long rssi = WiFi.RSSI();
+//     Serial.print("Signal strength (RSSI): ");
+//     Serial.print(rssi);
+//     Serial.println(" dBm");
+
+//     Serial.print("IP Address: ");
+//     Serial.println(WiFi.localIP());
+
+//     Serial.print("Subnet Mask: ");
+//     Serial.println(WiFi.subnetMask());
+
+//     Serial.print("Gateway IP: ");
+//     Serial.println(WiFi.gatewayIP());
+
+//     Serial.print("DNS IP 1: ");
+//     Serial.println(WiFi.dnsIP(0));
+
+//     Serial.print("DNS IP 2: ");
+//     Serial.println(WiFi.dnsIP(1));
+// }
+
+// void scanNetworks() {
+//     int n = WiFi.scanNetworks();
+//     Serial.println("Scan done");
+//     if (n == 0) {
+//         Serial.println("No networks found");
+//     } else {
+//         Serial.print(n);
+//         Serial.println(" networks found");
+//         for (int i = 0; i < n; ++i) {
+//             Serial.print(i + 1);
+//             Serial.print(": ");
+//             Serial.print(WiFi.SSID(i));
+//             Serial.print(" (");
+//             Serial.print(WiFi.RSSI(i));
+//             Serial.print(")");
+//             Serial.println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*");
+//             delay(10);
+//         }
+//     }
+//     Serial.println("");
+// }
+
+// void WiFi_Init() {
+//     Serial.println("Initializing WiFi...");
+
+//     WiFi.mode(WIFI_STA); // Set ESP32 to station mode
+
+//     if (!WiFi.config(localIP, localGateway, localSubnet, primaryDNS, secondaryDNS)) {
+//         Serial.println("Failed to configure static IP");
+//     }
+
+//     //scanNetworks(); // Scan for available networks
+
+//     WiFi.begin(ssid_wifi, password_wifi);
+//     Serial.print("Connecting to WiFi");
+
+//     unsigned long startAttemptTime = millis();
+
+//     // Wait for connection with a timeout
+//     while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
+//         delay(500);
+//         Serial.print(".");
+//     }
+
+//     if (WiFi.status() != WL_CONNECTED) {
+//         Serial.println("\nFailed to connect to WiFi");
+//         Serial.print("SSID: ");
+//         Serial.print(ssid_wifi);
+//         Serial.print(", Password: ");
+//         Serial.println(password_wifi);
+
+//         // Detailed error information
+//         Serial.print("WiFi status: ");
+//         Serial.println(WiFi.status());
+//         switch (WiFi.status()) {
+//             case WL_IDLE_STATUS:
+//                 Serial.println("WiFi is in idle status.");
+//                 break;
+//             case WL_NO_SSID_AVAIL:
+//                 Serial.println("No SSID available.");
+//                 break;
+//             case WL_SCAN_COMPLETED:
+//                 Serial.println("Scan completed.");
+//                 break;
+//             case WL_CONNECTED:
+//                 Serial.println("Successfully connected.");
+//                 break;
+//             case WL_CONNECT_FAILED:
+//                 Serial.println("Failed to connect.");
+//                 break;
+//             case WL_CONNECTION_LOST:
+//                 Serial.println("Connection lost.");
+//                 break;
+//             case WL_DISCONNECTED:
+//                 Serial.println("Disconnected.");
+//                 break;
+//             default:
+//                 Serial.println("Unknown status.");
+//                 break;
+//         }
+//     } else {
+//         Serial.println("\nConnected to WiFi");
+//         //printWiFiStatus();
+//     }
+// }
 
 void setup()
 {
     Serial.begin(115200);
     Serial.setDebugOutput(true);
+
+    WiFi_Init();
 
     if (!WiFi.config(localIP, localGateway, localSubnet, primaryDNS, secondaryDNS))
     {
@@ -159,12 +274,21 @@ void loop()
     Emotion_Show(emotion_task_mode); // Led matrix display function
     WS2812_Show(ws2812_task_mode);   // Car color lights display function
 
-    // The MQTT part
-    if (!client.connected())
-    {
-        reconnect();
-    }
-    client.loop();
+    Track_Car(carFlag);
+
+    //     float batteryPercentage = Get_Battery_Percentage();
+    //   Serial.print("Battery Percentage: ");
+    //   Serial.print(batteryPercentage);
+    //   Serial.println("%");
+    //   delay(1000); 
+    
+
+    //The MQTT part
+     if (!client.connected())
+     {
+             reconnect();
+     }
+     client.loop();
 
     if (newMqttMessage)
     {
@@ -203,7 +327,7 @@ void loop()
         // dtostrf(Get_Battery_Voltage(), 5, 2, buff);
         // client.publish("esp32/battery", buff);
 
-        // Track Read
+        // Track Read detecteur de ligne
         Track_Read();
         sensor_v = static_cast<int>(sensorValue[3]);
         char const *n_char = std::to_string(sensor_v).c_str();
@@ -224,6 +348,56 @@ void notifyClients()
 {
     ws.textAll("ok");
 }
+TaskHandle_t AutoMoveTask;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void AutoMoveTaskCode(void *pvParameters)
+{
+    const int consecutiveReadings = 2;  // Nombre de lectures consécutives nécessaires pour confirmer une absence d'obstacle
+    int noObstacleCounter = 0;  // Compteur de lectures consécutives sans obstacle
+
+    while (true)
+    {
+        // Vérification des obstacles
+        float distance = Get_Sonar();
+
+        if (distance < 25.0)
+        {
+            Car_SetMode(0); // arrete le vehicule si obstacle detecté
+            Serial.print("Obstacle detected! Distance: ");
+            Serial.print(distance);
+            Serial.println(" cm. Stopping the vehicle.");
+            Motor_Move(0, 0, 0, 0);  // Stop the vehicle
+            noObstacleCounter = 0;  // Réinitialiser le compteur car un obstacle est détecté
+        }
+        else
+        {
+            noObstacleCounter++;
+            if (noObstacleCounter >= consecutiveReadings)
+            {
+                // Si aucun obstacle n'est détecté, activer le suivi de ligne
+                Serial.println("No obstacle detected. Activating line tracking.");
+                Car_SetMode(1);
+                //Track_Car(1);
+
+                
+                noObstacleCounter = 0;  // Réinitialiser le compteur après avoir bougé
+            }
+        }
+
+        delay(200);  // Shorter delay to check the distance more frequently
+    }
+}
+
+
+// Déclarations globales
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+
 
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 {
@@ -310,6 +484,31 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         {
             bool video_activation = doc["data"] == 1;
             videoFlag = video_activation;
+        } 
+        else if (10 == cmd) 
+        {
+            bool enable_auto_mode = doc["data"] == 1;
+
+            if (enable_auto_mode) {
+                xTaskCreatePinnedToCore(
+                    AutoMoveTaskCode,   // Function that implements the task.
+                    "AutoMoveTask",     // Name of the task.
+                    10000,              // Stack size in words.
+                    NULL,               // Task input parameter.
+                    1,                  // Priority of the task.
+                    &AutoMoveTask,      // Task handle.
+                    0
+                );                 // Core where the task should run.
+            } else {
+                vTaskDelete(AutoMoveTask);
+                Car_SetMode(0);
+                // Motor_Move(0, 0, 0, 0);  // Stop the vehicle
+            }
+        }
+        else if (11 == cmd)
+        {
+            int car_mode = doc["data"] == 1;
+            Car_SetMode(car_mode);
         }
         else if (cmd == 20) // cmd start race
         {
