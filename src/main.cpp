@@ -39,18 +39,6 @@ IPAddress localSubnet(255, 255, 255, 0);   // Le masque de sous réseau
 IPAddress primaryDNS(8, 8, 8, 8);
 IPAddress secondaryDNS(8, 8, 4, 4);
 
-
-// const char *mqtt_server = "192.0.0.2"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
-// const int mqtt_interval_ms = 5000;          // L'interval en ms entre deux envois de données
-
-// IPAddress localIP(192, 0, 0, 22); // l'IP que vous voulez donner à votre voiture (faire attention a ce que les 3 premieres partie de l'ip soit toujours identique à celle de votre machine)
-
-// IPAddress localGateway(192,0,0,1); // L'IP de la gateway de votre réseau "route -n get default"
-// IPAddress localSubnet(255, 0, 0, 0);  // Le sous réseau
-
-// IPAddress primaryDNS(8, 8, 8, 8);
-// IPAddress secondaryDNS(8, 8, 4, 4);
-
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws"); // Changez le nom de ce point d'accès pour "sécuriser" l'accès à votre voiture
 
@@ -229,9 +217,9 @@ void setup()
     // server_Cmd.begin(4000);    // Start the command server
     server_Camera.begin(7000); // Turn on the camera server
 
-    // cameraSetup(); // Camera initialization
-    // camera_vflip(true);
-    // camera_hmirror(true);
+    cameraSetup(); // Camera initialization
+    camera_vflip(true);
+    camera_hmirror(true);
     Emotion_Setup();    // Emotion initialization
     WS2812_Setup();     // WS2812 initialization
     PCA9685_Setup();    // PCA9685 initialization
@@ -245,7 +233,6 @@ void setup()
     xTaskCreateUniversal(loopTask_WTD, "loopTask_WTD", 8192, NULL, 0, NULL, 0);
 
     client.setServer(mqtt_server, 1883);
-    Serial.println(WiFi.localIP());
 
     initWebSocket();
 
@@ -353,11 +340,7 @@ void loop()
         // Photosensitive Data
         dtostrf(Get_Photosensitive(), 5, 2, ultrasonic_buff);
         client.publish("esp32/light", ultrasonic_buff);
-
-
     }
-   
-  
 }
 
 // put function definitions here:
@@ -367,10 +350,6 @@ void notifyClients()
 }
 TaskHandle_t AutoMoveTask;
 
-
-
-//////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void AutoMoveTaskCode(void *pvParameters)
