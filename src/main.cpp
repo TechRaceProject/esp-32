@@ -296,7 +296,7 @@ void loop()
 
         ltoa(commandDuration, message, 10);
 
-        const char* topic = "esp32/course_time";
+        const char* topic = "esp32/race/race_time";
 
         client.publish(topic, message);
 
@@ -309,7 +309,7 @@ void loop()
 
         dtostrf(distanceCar, 5, 2, message);
 
-        const char* topic = "esp32/distance";
+        const char* topic = "esp32/race/distance";
 
         client.publish(topic, message);
 
@@ -331,15 +331,15 @@ void loop()
         Track_Read();
         sensor_v = static_cast<int>(sensorValue[3]);
         char const *n_char = std::to_string(sensor_v).c_str();
-        client.publish("esp32/track", n_char);
+        client.publish("esp32/car/track", n_char);
 
         // Ultrasonic Data
         dtostrf(Get_Sonar(), 5, 2, ultrasonic_buff);
-        client.publish("esp32/sonar", ultrasonic_buff);
+        client.publish("esp32/car/sonar", ultrasonic_buff);
 
         // Photosensitive Data
         dtostrf(Get_Photosensitive(), 5, 2, ultrasonic_buff);
-        client.publish("esp32/light", ultrasonic_buff);
+        client.publish("esp32/car/light", ultrasonic_buff);
     }
 }
 
@@ -533,7 +533,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             //topic pour la vitesse constante
             char message[20];
             dtostrf(constantSpeed, 5, 2, message);
-            client.publish("esp32/speed", message); 
+            client.publish("esp32/race/speed", message); 
 
             newMqttMessage = true;
         }
