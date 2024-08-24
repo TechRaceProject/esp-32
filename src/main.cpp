@@ -8,6 +8,7 @@
 #include "Freenove_4WD_Car_WS2812.h"
 #include "Freenove_4WD_Car_For_ESP32.h"
 #include "Freenove_4WD_Websocket.h"
+#include "Freenove_4WD_Race_Data.h"
 #include <PubSubClient.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
@@ -25,15 +26,15 @@
 // https://randomnerdtutorials.com/esp32-static-fixed-ip-address-arduino-ide/
 // https://github.com/Freenove/Freenove_4WD_Car_Kit_for_ESP32/tree/master
 
-char *ssid_wifi = "******"; // Le nom du réseau WiFi
-char *password_wifi = "******"; // Le password du WiFi
+char *ssid_wifi = "****"; // Le nom du réseau WiFi
+char *password_wifi = "****"; // Le password du WiFi
 
-const char *mqtt_server = "192.168.194.67"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
+const char *mqtt_server = "192.0.0.0"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
 const int mqtt_interval_ms = 5000;          // L'interval en ms entre deux envois de données
 
 IPAddress localIP(0, 0, 0, 0);  // l'IP que vous voulez donner à votre voiture (faire attention a ce que les 3 premieres partie de l'ip soit toujours identique à celle de votre machine)
 
-IPAddress localGateway(0, 0, 0, 0);  // L'IP de la gateway de votre réseau "route -n get default"
+IPAddress localGateway(192, 0, 0, 0);  // L'IP de la gateway de votre réseau "route -n get default"
 IPAddress localSubnet(255, 255, 255, 0);   // Le masque de sous réseau
 
 IPAddress primaryDNS(8, 8, 8, 8);
@@ -55,6 +56,7 @@ int distance[4];          // Storage of ultrasonic data
 int sensor_v;             // Int cast of track sensor data
 char buff[6];             // Buffer to store the battery voltage data
 char ultrasonic_buff[10]; // Buffer to store the Ultrasonic data
+char distance_covered_buff[128]; // Buffer to store the distance covered data and the race id
 
 long startTime = 0;
 long endTime = 0;
@@ -63,13 +65,6 @@ long commandDuration = 0;
 bool newMqttMessage = false;
 bool newDistanceMessage = false;
 float distanceCar = 0.0;
-
-// Vitesse constante m/s en fonction de la puissance des roues
-float getConstantSpeed(int power) {
-    float singleContantSpeed = 0.357 / 1000;
-
-    return singleContantSpeed * power;
-}
 
 // put function declarations here:
 void WiFi_Init();
@@ -88,116 +83,6 @@ void WiFi_Init()
     password_AP = "Sunshine";        // Set your AP password for ESP32 to Sunshine
     frame_size = FRAMESIZE_CIF;      // 400*296
 }
-// void printWiFiStatus() {
-//     Serial.print("SSID: ");
-//     Serial.println(WiFi.SSID());
-
-//     long rssi = WiFi.RSSI();
-//     Serial.print("Signal strength (RSSI): ");
-//     Serial.print(rssi);
-//     Serial.println(" dBm");
-
-//     Serial.print("IP Address: ");
-//     Serial.println(WiFi.localIP());
-
-//     Serial.print("Subnet Mask: ");
-//     Serial.println(WiFi.subnetMask());
-
-//     Serial.print("Gateway IP: ");
-//     Serial.println(WiFi.gatewayIP());
-
-//     Serial.print("DNS IP 1: ");
-//     Serial.println(WiFi.dnsIP(0));
-
-//     Serial.print("DNS IP 2: ");
-//     Serial.println(WiFi.dnsIP(1));
-// }
-
-// void scanNetworks() {
-//     int n = WiFi.scanNetworks();
-//     Serial.println("Scan done");
-//     if (n == 0) {
-//         Serial.println("No networks found");
-//     } else {
-//         Serial.print(n);
-//         Serial.println(" networks found");
-//         for (int i = 0; i < n; ++i) {
-//             Serial.print(i + 1);
-//             Serial.print(": ");
-//             Serial.print(WiFi.SSID(i));
-//             Serial.print(" (");
-//             Serial.print(WiFi.RSSI(i));
-//             Serial.print(")");
-//             Serial.println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*");
-//             delay(10);
-//         }
-//     }
-//     Serial.println("");
-// }
-
-// void WiFi_Init() {
-//     Serial.println("Initializing WiFi...");
-
-//     WiFi.mode(WIFI_STA); // Set ESP32 to station mode
-
-//     if (!WiFi.config(localIP, localGateway, localSubnet, primaryDNS, secondaryDNS)) {
-//         Serial.println("Failed to configure static IP");
-//     }
-
-//     //scanNetworks(); // Scan for available networks
-
-//     WiFi.begin(ssid_wifi, password_wifi);
-//     Serial.print("Connecting to WiFi");
-
-//     unsigned long startAttemptTime = millis();
-
-//     // Wait for connection with a timeout
-//     while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
-//         delay(500);
-//         Serial.print(".");
-//     }
-
-//     if (WiFi.status() != WL_CONNECTED) {
-//         Serial.println("\nFailed to connect to WiFi");
-//         Serial.print("SSID: ");
-//         Serial.print(ssid_wifi);
-//         Serial.print(", Password: ");
-//         Serial.println(password_wifi);
-
-//         // Detailed error information
-//         Serial.print("WiFi status: ");
-//         Serial.println(WiFi.status());
-//         switch (WiFi.status()) {
-//             case WL_IDLE_STATUS:
-//                 Serial.println("WiFi is in idle status.");
-//                 break;
-//             case WL_NO_SSID_AVAIL:
-//                 Serial.println("No SSID available.");
-//                 break;
-//             case WL_SCAN_COMPLETED:
-//                 Serial.println("Scan completed.");
-//                 break;
-//             case WL_CONNECTED:
-//                 Serial.println("Successfully connected.");
-//                 break;
-//             case WL_CONNECT_FAILED:
-//                 Serial.println("Failed to connect.");
-//                 break;
-//             case WL_CONNECTION_LOST:
-//                 Serial.println("Connection lost.");
-//                 break;
-//             case WL_DISCONNECTED:
-//                 Serial.println("Disconnected.");
-//                 break;
-//             default:
-//                 Serial.println("Unknown status.");
-//                 break;
-//         }
-//     } else {
-//         Serial.println("\nConnected to WiFi");
-//         //printWiFiStatus();
-//     }
-// }
 
 void setup()
 {
@@ -276,19 +161,17 @@ void loop()
 
     Track_Car(carFlag);
 
-    //     float batteryPercentage = Get_Battery_Percentage();
-    //   Serial.print("Battery Percentage: ");
-    //   Serial.print(batteryPercentage);
-    //   Serial.println("%");
-    //   delay(1000); 
-    
-
     //The MQTT part
      if (!client.connected())
      {
-             reconnect();
+        reconnect();
      }
      client.loop();
+
+    // Mettre à jour la distance parcourue si le mode course est actif
+    if (race_mode) {
+        updateDistanceCovered();
+    }
 
     if (newMqttMessage)
     {
@@ -330,16 +213,35 @@ void loop()
         // Track Read detecteur de ligne
         Track_Read();
         sensor_v = static_cast<int>(sensorValue[3]);
-        char const *n_char = std::to_string(sensor_v).c_str();
-        client.publish("esp32/track", n_char);
+        // char const *n_char = std::to_string(sensor_v).c_str();
+        // client.publish("esp32/track", n_char);
 
         // Ultrasonic Data
-        dtostrf(Get_Sonar(), 5, 2, ultrasonic_buff);
-        client.publish("esp32/sonar", ultrasonic_buff);
+        // dtostrf(Get_Sonar(), 5, 2, ultrasonic_buff);
+        // client.publish("esp32/sonar", ultrasonic_buff);
 
         // Photosensitive Data
-        dtostrf(Get_Photosensitive(), 5, 2, ultrasonic_buff);
-        client.publish("esp32/light", ultrasonic_buff);
+        // dtostrf(Get_Photosensitive(), 5, 2, ultrasonic_buff);
+        // client.publish("esp32/light", ultrasonic_buff);
+
+        if (race_mode && race_id != 0) {
+            // data à envoyer :
+
+            // -> distance parcourue
+            if (distance_covered != distance_previously_covered) {
+                char topic_buffer[128];
+                generateRaceTopic(topic_buffer, sizeof(topic_buffer), race_id, "distance_covered");
+                dtostrf(distance_covered, 5, 2, distance_covered_buff);
+                client.publish(topic_buffer, distance_covered_buff);
+
+                // Pour empêcher les publications superflues
+                distance_previously_covered = distance_covered;
+            }
+
+            // -> vitesse moyenne
+            // -> sortie de route
+            // -> nombre de colisions
+        }
     }
 }
 
@@ -510,6 +412,19 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             int car_mode = doc["data"] == 1;
             Car_SetMode(car_mode);
         }
+        else if (12 == cmd) {
+            // Permet d'activer le mode course de la voiture
+            // Le mode course sera ensuite utilisé pour l'envoi de donnée au broker
+            // qui seront ensuite utilisé pour mettre à jour la course en cours du coté de l'api
+
+            resetRaceDataToDefault();
+        
+            JsonArray data = doc["data"];
+
+            race_id = data[0];
+
+            race_mode = data[1]; 
+        }
         else if (cmd == 20) // cmd start race
         {
             startTime = millis();
@@ -526,9 +441,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 
             Motor_Move(data_0, data_1, data_2, data_3);
 
-            int maxPower = max(max(data_0, data_1), max(data_2, data_3));
-
-            constantSpeed = getConstantSpeed(maxPower);
+            constantSpeed = getConstantSpeed();
 
             //topic pour la vitesse constante
             char message[20];
@@ -654,3 +567,114 @@ void loopTask_Camera(void *pvParameters)
         }
     }
 }
+
+// void printWiFiStatus() {
+//     Serial.print("SSID: ");
+//     Serial.println(WiFi.SSID());
+
+//     long rssi = WiFi.RSSI();
+//     Serial.print("Signal strength (RSSI): ");
+//     Serial.print(rssi);
+//     Serial.println(" dBm");
+
+//     Serial.print("IP Address: ");
+//     Serial.println(WiFi.localIP());
+
+//     Serial.print("Subnet Mask: ");
+//     Serial.println(WiFi.subnetMask());
+
+//     Serial.print("Gateway IP: ");
+//     Serial.println(WiFi.gatewayIP());
+
+//     Serial.print("DNS IP 1: ");
+//     Serial.println(WiFi.dnsIP(0));
+
+//     Serial.print("DNS IP 2: ");
+//     Serial.println(WiFi.dnsIP(1));
+// }
+
+// void scanNetworks() {
+//     int n = WiFi.scanNetworks();
+//     Serial.println("Scan done");
+//     if (n == 0) {
+//         Serial.println("No networks found");
+//     } else {
+//         Serial.print(n);
+//         Serial.println(" networks found");
+//         for (int i = 0; i < n; ++i) {
+//             Serial.print(i + 1);
+//             Serial.print(": ");
+//             Serial.print(WiFi.SSID(i));
+//             Serial.print(" (");
+//             Serial.print(WiFi.RSSI(i));
+//             Serial.print(")");
+//             Serial.println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*");
+//             delay(10);
+//         }
+//     }
+//     Serial.println("");
+// }
+
+// void WiFi_Init() {
+//     Serial.println("Initializing WiFi...");
+
+//     WiFi.mode(WIFI_STA); // Set ESP32 to station mode
+
+//     if (!WiFi.config(localIP, localGateway, localSubnet, primaryDNS, secondaryDNS)) {
+//         Serial.println("Failed to configure static IP");
+//     }
+
+//     //scanNetworks(); // Scan for available networks
+
+//     WiFi.begin(ssid_wifi, password_wifi);
+//     Serial.print("Connecting to WiFi");
+
+//     unsigned long startAttemptTime = millis();
+
+//     // Wait for connection with a timeout
+//     while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
+//         delay(500);
+//         Serial.print(".");
+//     }
+
+//     if (WiFi.status() != WL_CONNECTED) {
+//         Serial.println("\nFailed to connect to WiFi");
+//         Serial.print("SSID: ");
+//         Serial.print(ssid_wifi);
+//         Serial.print(", Password: ");
+//         Serial.println(password_wifi);
+
+//         // Detailed error information
+//         Serial.print("WiFi status: ");
+//         Serial.println(WiFi.status());
+//         switch (WiFi.status()) {
+//             case WL_IDLE_STATUS:
+//                 Serial.println("WiFi is in idle status.");
+//                 break;
+//             case WL_NO_SSID_AVAIL:
+//                 Serial.println("No SSID available.");
+//                 break;
+//             case WL_SCAN_COMPLETED:
+//                 Serial.println("Scan completed.");
+//                 break;
+//             case WL_CONNECTED:
+//                 Serial.println("Successfully connected.");
+//                 break;
+//             case WL_CONNECT_FAILED:
+//                 Serial.println("Failed to connect.");
+//                 break;
+//             case WL_CONNECTION_LOST:
+//                 Serial.println("Connection lost.");
+//                 break;
+//             case WL_DISCONNECTED:
+//                 Serial.println("Disconnected.");
+//                 break;
+//             default:
+//                 Serial.println("Unknown status.");
+//                 break;
+//         }
+//     } else {
+//         Serial.println("\nConnected to WiFi");
+//         //printWiFiStatus();
+//     }
+// }
