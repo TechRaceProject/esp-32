@@ -33,6 +33,10 @@ void Servo_1_Angle(int angle);                                           // Set 
 void Servo_2_Angle(int angle);                                           // Set the rotation parameters of servo 2, and the parameters are 0-180 degrees
 void Servo_Sweep(int servo_id, int angle_start, int angle_end);          // Servo sweep function;
 void Motor_Move(int m1_speed, int m2_speed, int m3_speed, int m4_speed); // A function to control the car motor
+int Get_Wheel_1_Speed(void);                                             // Get the speed of wheel 1
+int Get_Wheel_2_Speed(void);                                             // Get the speed of wheel 2
+int Get_Wheel_3_Speed(void);                                             // Get the speed of wheel 3
+int Get_Wheel_4_Speed(void);                                             // Get the speed of wheel 4
 
 //////////////////////Buzzer drive area////////////////////////////////////
 void Buzzer_Setup(void);                          // Buzzer initialization

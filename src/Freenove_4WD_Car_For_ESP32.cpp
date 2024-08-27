@@ -9,6 +9,11 @@
 /////////////////////PCA9685 drive area///////////////////////////////////
 PCA9685 pca9685; // Instantiate a PCA9685 object
 
+int wheel_1_power = 0;
+int wheel_2_power = 0;
+int wheel_3_power = 0;
+int wheel_4_power = 0;
+
 // PCA9685 initialization
 void PCA9685_Setup(void)
 {
@@ -91,56 +96,58 @@ void Servo_Sweep(int servo_id, int angle_start, int angle_end)
 // A function to control the car motor
 void Motor_Move(int m1_speed, int m2_speed, int m3_speed, int m4_speed)
 {
-  m1_speed = MOTOR_1_DIRECTION * constrain(m1_speed, MOTOR_SPEED_MIN, MOTOR_SPEED_MAX);
-  m2_speed = MOTOR_2_DIRECTION * constrain(m2_speed, MOTOR_SPEED_MIN, MOTOR_SPEED_MAX);
-  m3_speed = MOTOR_3_DIRECTION * constrain(m3_speed, MOTOR_SPEED_MIN, MOTOR_SPEED_MAX);
-  m4_speed = MOTOR_4_DIRECTION * constrain(m4_speed, MOTOR_SPEED_MIN, MOTOR_SPEED_MAX);
-  if (m1_speed > 0)
+  wheel_1_power = MOTOR_1_DIRECTION * constrain(m1_speed, MOTOR_SPEED_MIN, MOTOR_SPEED_MAX);
+  wheel_2_power = MOTOR_2_DIRECTION * constrain(m2_speed, MOTOR_SPEED_MIN, MOTOR_SPEED_MAX);
+  wheel_3_power = MOTOR_3_DIRECTION * constrain(m3_speed, MOTOR_SPEED_MIN, MOTOR_SPEED_MAX);
+  wheel_4_power = MOTOR_4_DIRECTION * constrain(m4_speed, MOTOR_SPEED_MIN, MOTOR_SPEED_MAX);
+
+  if (wheel_1_power > 0)
   {
-    m1_speed = constrain(m1_speed, 600, 4095);
-    pca9685.setChannelPulseWidth(PIN_MOTOR_M1_IN1, m1_speed);
+    wheel_1_power = constrain(wheel_1_power, 600, 4095);
+    pca9685.setChannelPulseWidth(PIN_MOTOR_M1_IN1, wheel_1_power);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M1_IN2, 0);
   }
-  else if (m1_speed < 0)
+  else if (wheel_1_power < 0)
   {
-    m1_speed = -m1_speed;
-    m1_speed = constrain(m1_speed, 600, 4095);
+    wheel_1_power = -wheel_1_power;
+    wheel_1_power = constrain(wheel_1_power, 600, 4095);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M1_IN1, 0);
-    pca9685.setChannelPulseWidth(PIN_MOTOR_M1_IN2, m1_speed);
+    pca9685.setChannelPulseWidth(PIN_MOTOR_M1_IN2, wheel_1_power);
   }
   else
   {
     pca9685.setChannelPulseWidth(PIN_MOTOR_M1_IN1, 0);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M1_IN2, 0);
   }
-  if (m2_speed > 0)
+
+  if (wheel_2_power > 0)
   {
-    m2_speed = constrain(m2_speed, 600, 4095);
-    pca9685.setChannelPulseWidth(PIN_MOTOR_M2_IN1, m2_speed);
+    wheel_2_power = constrain(wheel_2_power, 600, 4095);
+    pca9685.setChannelPulseWidth(PIN_MOTOR_M2_IN1, wheel_2_power);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M2_IN2, 0);
   }
-  else if (m2_speed < 0)
+  else if (wheel_2_power < 0)
   {
-    m2_speed = -m2_speed;
-    m2_speed = constrain(m2_speed, 600, 4095);
+    wheel_2_power = -wheel_2_power;
+    wheel_2_power = constrain(wheel_2_power, 600, 4095);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M2_IN1, 0);
-    pca9685.setChannelPulseWidth(PIN_MOTOR_M2_IN2, m2_speed);
+    pca9685.setChannelPulseWidth(PIN_MOTOR_M2_IN2, wheel_2_power);
   }
   else
   {
     pca9685.setChannelPulseWidth(PIN_MOTOR_M2_IN1, 0);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M2_IN2, 0);
   }
-  if (m3_speed > 0)
+  if (wheel_3_power > 0)
   {
-    m3_speed = constrain(m3_speed, 600, 4095);
-    pca9685.setChannelPulseWidth(PIN_MOTOR_M3_IN1, m3_speed);
+    wheel_3_power = constrain(wheel_3_power, 600, 4095);
+    pca9685.setChannelPulseWidth(PIN_MOTOR_M3_IN1, wheel_3_power);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M3_IN2, 0);
   }
-  else if (m3_speed < 0)
+  else if (wheel_3_power < 0)
   {
-    m3_speed = -m3_speed;
-    m3_speed = constrain(m3_speed, 600, 4095);
+    wheel_3_power = -wheel_3_power;
+    wheel_3_power = constrain(wheel_3_power, 600, 4095);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M3_IN1, 0);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M3_IN2, m3_speed);
   }
@@ -149,18 +156,18 @@ void Motor_Move(int m1_speed, int m2_speed, int m3_speed, int m4_speed)
     pca9685.setChannelPulseWidth(PIN_MOTOR_M3_IN1, 0);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M3_IN2, 0);
   }
-  if (m4_speed > 0)
+  if (wheel_4_power > 0)
   {
-    m4_speed = constrain(m4_speed, 600, 4095);
-    pca9685.setChannelPulseWidth(PIN_MOTOR_M4_IN1, m4_speed);
+    wheel_4_power = constrain(wheel_4_power, 600, 4095);
+    pca9685.setChannelPulseWidth(PIN_MOTOR_M4_IN1, wheel_4_power);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M4_IN2, 0);
   }
-  else if (m4_speed < 0)
+  else if (wheel_4_power < 0)
   {
-    m4_speed = -m4_speed;
-    m4_speed = constrain(m4_speed, 600, 4095);
+    wheel_4_power = -wheel_4_power;
+    wheel_4_power = constrain(wheel_4_power, 600, 4095);
     pca9685.setChannelPulseWidth(PIN_MOTOR_M4_IN1, 0);
-    pca9685.setChannelPulseWidth(PIN_MOTOR_M4_IN2, m4_speed);
+    pca9685.setChannelPulseWidth(PIN_MOTOR_M4_IN2, wheel_4_power);
   }
   else
   {
@@ -169,6 +176,25 @@ void Motor_Move(int m1_speed, int m2_speed, int m3_speed, int m4_speed)
   }
 }
 
+int Get_Wheel_1_Speed(void)
+{
+  return wheel_1_power;
+}
+
+int Get_Wheel_2_Speed(void)
+{
+  return wheel_2_power;
+}
+
+int Get_Wheel_3_Speed(void)
+{
+  return wheel_3_power;
+}
+
+int Get_Wheel_4_Speed(void)
+{
+  return wheel_4_power;
+}
 //////////////////////Buzzer drive area///////////////////////////////////
 // Buzzer pin definition
 #define PIN_BUZZER 2          // Define the pins for the ESP32 control buzzer
@@ -253,12 +279,13 @@ float Get_Battery_Voltage(void)
 float Get_Battery_Percentage(void)
 {
   float voltage = Get_Battery_Voltage();
-  // Ensure the voltage is within the expected range
-  if (voltage < minVoltage) voltage = minVoltage;
-  if (voltage > maxVoltage) voltage = maxVoltage;
-  
-  // Calculate the percentage
-  float percentage = ((voltage - minVoltage) / (maxVoltage - minVoltage)) * 100;
+  float percentage = (voltage - minVoltage) / (maxVoltage - minVoltage) * 100.0;
+
+  if (percentage > 100.0)
+      percentage = 100.0;
+  else if (percentage < 0.0)
+      percentage = 0.0;
+
   return percentage;
 }
 
