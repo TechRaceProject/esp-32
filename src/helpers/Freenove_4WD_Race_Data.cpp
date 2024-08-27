@@ -5,15 +5,21 @@
 // Define if the car is in race mode. Golang API will use this to update a race model
 int race_id = 0;
 bool race_mode = false;
-float distance_covered = 0;
-unsigned long last_update_time = 0;
+bool must_end_race_api_signal = false;
 
+float average_speed = 0;
+float distance_covered = 0;
+int collision_duration = 0;
+int out_of_parcours = 0;
+
+unsigned long last_distance_covered_update_time = 0;
+unsigned long last_out_of_parcours_update_time = 0;
+unsigned long last_collision_duration_update_time = 0;
+unsigned long race_start_time = 0; // Heure de début de la course
+
+int previous_race_id = 0;
 float distance_previously_covered = 0;
 
-
-// int average_speed = 0;
-// int number_of_collisions = 0;
-// int count_of_out_of_track = 0;
 
 // Vitesse constante m/s en fonction de la puissance des roues
 float getConstantSpeed() {
@@ -33,17 +39,61 @@ void updateDistanceCovered() {
     unsigned long current_time = millis();
     
     // Vérifie si une seconde s'est écoulée
-    if (current_time - last_update_time >= 1000) {
+    if (current_time - last_distance_covered_update_time >= 1000) {
         float speed = getConstantSpeed(); // Vitesse en m/s
         
         // Mettre à jour la distance parcourue
         distance_covered += speed; // Ajouter la distance parcourue en une seconde
         
         // Mettre à jour le temps de la dernière mise à jour
-        last_update_time = current_time;
+        last_distance_covered_update_time = current_time;
 
         return;
     }
+}
+
+// Fonction pour calculer la vitesse moyenne
+void updateAverageSpeed() {
+    unsigned long current_time = millis();
+
+    // Calculer le temps total écoulé en secondes
+    float elapsed_time = (current_time - race_start_time) / 1000.0;
+
+    // Vitesse moyenne en m/s
+    if (elapsed_time > 0) { // /!\ Éviter la division par zéro
+        average_speed = distance_covered / elapsed_time;
+    } else {
+        average_speed = 0;
+    }
+}
+
+// nombre de secondes durant lesquelles la voiture était hors du parcours
+void updateOutOfParcours() {
+    unsigned long current_time = millis();
+    
+    if (current_time - last_out_of_parcours_update_time >= 1000) {
+        Track_Read();
+
+        if (sensorValue[3] == 0 || sensorValue[3] == 7) {
+            out_of_parcours++;
+        }
+
+        last_out_of_parcours_update_time = current_time;
+    }
+}
+
+// nombre de secondes durant lesquelles la voiture était en collision
+void updateCollisionDurationTime() {
+        unsigned long current_time = millis();
+
+        if (current_time - last_collision_duration_update_time >= 1000) {
+            float distance = Get_Sonar();
+
+            if (distance < 25.0)
+            {
+                collision_duration++;
+            }
+        }
 }
 
 char* generateRaceTopic(char* buffer, size_t bufferSize, int raceId, const char* suffix) {
@@ -54,10 +104,18 @@ char* generateRaceTopic(char* buffer, size_t bufferSize, int raceId, const char*
 }
 
 void resetRaceDataToDefault() {
+    previous_race_id = race_id;
     race_id = 0;
     race_mode = false;
+    average_speed = 0;
     distance_covered = 0;
-    last_update_time = 0;
+    collision_duration = 0;
+    out_of_parcours = 0;
 
     distance_previously_covered = 0;
+    last_distance_covered_update_time = 0;
+    last_out_of_parcours_update_time = 0;
+    last_collision_duration_update_time = 0;
+
+    race_start_time = 0;
 }

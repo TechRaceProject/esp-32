@@ -29,12 +29,12 @@
 char *ssid_wifi = "****"; // Le nom du réseau WiFi
 char *password_wifi = "****"; // Le password du WiFi
 
-const char *mqtt_server = "192.0.0.0"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
+const char *mqtt_server = "0.0.0.0"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
 const int mqtt_interval_ms = 5000;          // L'interval en ms entre deux envois de données
 
 IPAddress localIP(0, 0, 0, 0);  // l'IP que vous voulez donner à votre voiture (faire attention a ce que les 3 premieres partie de l'ip soit toujours identique à celle de votre machine)
 
-IPAddress localGateway(192, 0, 0, 0);  // L'IP de la gateway de votre réseau "route -n get default"
+IPAddress localGateway(0, 0, 0, 0);  // L'IP de la gateway de votre réseau "route -n get default"
 IPAddress localSubnet(255, 255, 255, 0);   // Le masque de sous réseau
 
 IPAddress primaryDNS(8, 8, 8, 8);
@@ -53,10 +53,13 @@ bool videoFlag = 0;
 long last_message = 0;
 
 int distance[4];          // Storage of ultrasonic data
-int sensor_v;             // Int cast of track sensor data
 char buff[6];             // Buffer to store the battery voltage data
 char ultrasonic_buff[10]; // Buffer to store the Ultrasonic data
+char average_speed_buff[32]; // Buffer to store the average speed data
 char distance_covered_buff[128]; // Buffer to store the distance covered data and the race id
+char collision_duration_buff[32]; // Buffer to store the number of collisions data
+char out_of_parcours_buff[32]; // Buffer to store the number of out of parcours data
+
 
 long startTime = 0;
 long endTime = 0;
@@ -170,7 +173,9 @@ void loop()
 
     // Mettre à jour la distance parcourue si le mode course est actif
     if (race_mode) {
+        updateAverageSpeed();
         updateDistanceCovered();
+        updateOutOfParcours();
     }
 
     if (newMqttMessage)
@@ -210,37 +215,64 @@ void loop()
         // dtostrf(Get_Battery_Voltage(), 5, 2, buff);
         // client.publish("esp32/battery", buff);
 
-        // Track Read detecteur de ligne
-        Track_Read();
-        sensor_v = static_cast<int>(sensorValue[3]);
-        // char const *n_char = std::to_string(sensor_v).c_str();
-        // client.publish("esp32/track", n_char);
-
-        // Ultrasonic Data
-        // dtostrf(Get_Sonar(), 5, 2, ultrasonic_buff);
-        // client.publish("esp32/sonar", ultrasonic_buff);
-
-        // Photosensitive Data
-        // dtostrf(Get_Photosensitive(), 5, 2, ultrasonic_buff);
-        // client.publish("esp32/light", ultrasonic_buff);
-
         if (race_mode && race_id != 0) {
-            // data à envoyer :
+
+            char topic_buffer[64];
 
             // -> distance parcourue
             if (distance_covered != distance_previously_covered) {
-                char topic_buffer[128];
-                generateRaceTopic(topic_buffer, sizeof(topic_buffer), race_id, "distance_covered");
                 dtostrf(distance_covered, 5, 2, distance_covered_buff);
-                client.publish(topic_buffer, distance_covered_buff);
+
+                client.publish(
+                    generateRaceTopic(topic_buffer, sizeof(topic_buffer), race_id, "distance_covered"), 
+                    distance_covered_buff
+                );
 
                 // Pour empêcher les publications superflues
                 distance_previously_covered = distance_covered;
             }
 
             // -> vitesse moyenne
+            dtostrf(average_speed, 5, 2, average_speed_buff);
+
+            client.publish(
+                generateRaceTopic(topic_buffer, sizeof(topic_buffer), race_id, "average_speed"),
+                average_speed_buff
+            );
+           
             // -> sortie de route
+            if (out_of_parcours != 0) {
+                dtostrf(out_of_parcours, 5, 2, out_of_parcours_buff);
+
+                client.publish(
+                    generateRaceTopic(topic_buffer, sizeof(topic_buffer), race_id, "out_of_parcours"),
+                    out_of_parcours_buff
+                );
+            }
+
             // -> nombre de colisions
+            if (collision_duration != 0) {
+                dtostrf(collision_duration, 5, 2, collision_duration_buff);
+
+                client.publish(
+                    generateRaceTopic(topic_buffer, sizeof(topic_buffer), race_id, "collision_duration"),
+                    collision_duration_buff
+                );
+            }
+        }
+    
+        if (must_end_race_api_signal && previous_race_id != 0) {
+            // Envoyer un signal à l'API Golang pour arrêter la course
+
+            char message_buffer[64];
+            const char *payload = "completed";
+
+            client.publish(
+                generateRaceTopic(message_buffer, sizeof(message_buffer), previous_race_id, "status"),
+                payload
+            );
+
+            must_end_race_api_signal = false;
         }
     }
 }
@@ -414,16 +446,27 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         }
         else if (12 == cmd) {
             // Permet d'activer le mode course de la voiture
-            // Le mode course sera ensuite utilisé pour l'envoi de donnée au broker
-            // qui seront ensuite utilisé pour mettre à jour la course en cours du coté de l'api
+            // Lorsque le mode course est activé, la voiture enregistre et génère des données de course
+            // Ces données sont ensuite envoyées au un serveur MQTT
+            // body : [race_id, race_mode]
 
-            resetRaceDataToDefault();
-        
             JsonArray data = doc["data"];
+
+            bool wasInRaceMode = race_mode == true;
 
             race_id = data[0];
 
-            race_mode = data[1]; 
+            race_mode = data[1] == 1;
+
+            if (! race_mode && wasInRaceMode) {
+                resetRaceDataToDefault();
+
+                must_end_race_api_signal = true;
+            }
+
+            if (race_mode && race_id != 0) {
+                race_start_time = millis();
+            }
         }
         else if (cmd == 20) // cmd start race
         {
