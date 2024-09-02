@@ -87,11 +87,15 @@ void updateCollisionDurationTime() {
         unsigned long current_time = millis();
 
         if (current_time - last_collision_duration_update_time >= 1000) {
+            
+            last_collision_duration_update_time = current_time; // mise à jour du temps de la dernière vérification
+
             float distance = Get_Sonar();
 
             if (distance < 25.0)
             {
                 collision_duration++;
+                
             }
         }
 }

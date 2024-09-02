@@ -29,12 +29,12 @@
 char *ssid_wifi = "****"; // Le nom du réseau WiFi
 char *password_wifi = "****"; // Le password du WiFi
 
-const char *mqtt_server = "0.0.0.0"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
+const char *mqtt_server = "192.168.24.0"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
 const int mqtt_interval_ms = 5000;          // L'interval en ms entre deux envois de données
 
-IPAddress localIP(0, 0, 0, 0);  // l'IP que vous voulez donner à votre voiture (faire attention a ce que les 3 premieres partie de l'ip soit toujours identique à celle de votre machine)
+IPAddress localIP(192,168,24,90);  // l'IP que vous voulez donner à votre voiture (faire attention a ce que les 3 premieres partie de l'ip soit toujours identique à celle de votre machine)
 
-IPAddress localGateway(0, 0, 0, 0);  // L'IP de la gateway de votre réseau "route -n get default"
+IPAddress localGateway(192,168,24,4);  // L'IP de la gateway de votre réseau "route -n get default"
 IPAddress localSubnet(255, 255, 255, 0);   // Le masque de sous réseau
 
 IPAddress primaryDNS(8, 8, 8, 8);
@@ -65,7 +65,8 @@ long startTime = 0;
 long endTime = 0;
 float constantSpeed = 0.0;
 long commandDuration = 0;
-bool newMqttMessage = false;
+bool newRaceMessage = false;
+bool newCollision = false;
 bool newDistanceMessage = false;
 float distanceCar = 0.0;
 
@@ -176,9 +177,10 @@ void loop()
         updateAverageSpeed();
         updateDistanceCovered();
         updateOutOfParcours();
+        updateCollisionDurationTime();
     }
 
-    if (newMqttMessage)
+    if (newRaceMessage)
     {
         char message[20];
 
@@ -188,7 +190,7 @@ void loop()
 
         client.publish(topic, message);
 
-        newMqttMessage = false;
+        newRaceMessage = false;
     }
 
     if (newDistanceMessage)
@@ -202,6 +204,18 @@ void loop()
         client.publish(topic, message);
 
         newDistanceMessage = false;
+    }
+    if (newCollision) {
+        newCollision = false; // réinitialisation du flag
+
+        char message[20];
+        snprintf(message, sizeof(message), "Collision durée: %u", collision_duration);
+
+        const char* topic = "esp32/collision";
+        client.publish(topic, message);
+
+        // Remise à zéro de la durée de la collision après l'envoi du message
+        collision_duration = 0;
     }
     
     long now = millis();
@@ -491,7 +505,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             dtostrf(constantSpeed, 5, 2, message);
             client.publish("esp32/speed", message); 
 
-            newMqttMessage = true;
+            newRaceMessage = true;
         }
         // cmd stop (mais à changer pour changer la logique du stop)
         else if (cmd == 21)
@@ -506,7 +520,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             // Distance parcourue par la voiture en mètre
             distanceCar = constantSpeed * (commandDuration / 1000.0);
 
-            newMqttMessage = true;
+            newRaceMessage = true;
 
             newDistanceMessage = true;
         }
