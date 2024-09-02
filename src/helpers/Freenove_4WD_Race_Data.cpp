@@ -48,6 +48,8 @@ void updateDistanceCovered() {
         // Mettre à jour le temps de la dernière mise à jour
         last_distance_covered_update_time = current_time;
 
+        updateAverageSpeed();
+
         return;
     }
 }
