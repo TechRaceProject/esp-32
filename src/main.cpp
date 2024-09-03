@@ -29,12 +29,12 @@
 char *ssid_wifi = "****"; // Le nom du réseau WiFi
 char *password_wifi = "****"; // Le password du WiFi
 
-const char *mqtt_server = "192.168.24.0"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
+const char *mqtt_server = "0.0.0.0"; // L'IP de votre broker MQTT (ta machine, ifconfig | grep 192 )
 const int mqtt_interval_ms = 5000;          // L'interval en ms entre deux envois de données
 
-IPAddress localIP(192,168,24,90);  // l'IP que vous voulez donner à votre voiture (faire attention a ce que les 3 premieres partie de l'ip soit toujours identique à celle de votre machine)
+IPAddress localIP(0, 0, 0, 0);  // l'IP que vous voulez donner à votre voiture (faire attention a ce que les 3 premieres partie de l'ip soit toujours identique à celle de votre machine)
 
-IPAddress localGateway(192,168,24,4);  // L'IP de la gateway de votre réseau "route -n get default"
+IPAddress localGateway(0, 0, 0, 0);  // L'IP de la gateway de votre réseau "route -n get default"
 IPAddress localSubnet(255, 255, 255, 0);   // Le masque de sous réseau
 
 IPAddress primaryDNS(8, 8, 8, 8);
@@ -66,9 +66,19 @@ long endTime = 0;
 float constantSpeed = 0.0;
 long commandDuration = 0;
 bool newRaceMessage = false;
-bool newCollision = false;
 bool newDistanceMessage = false;
 float distanceCar = 0.0;
+
+// variable used to create vehicule history API side
+bool servoMoveCommand = false;
+bool headAngleCommand = false;
+bool ledAnimationCommand = false;
+bool ledPrincipalColorCommand = false;
+bool buzzerAlarmCommand = false;
+bool buzzerVariableCommand = false;
+bool videoCommand = false;
+bool autoModeCommand = false;
+bool raceStartingModeCommand = false;
 
 // put function declarations here:
 void WiFi_Init();
@@ -172,12 +182,70 @@ void loop()
      }
      client.loop();
 
-    // Mettre à jour la distance parcourue si le mode course est actif
     if (race_mode) {
         updateAverageSpeed();
         updateDistanceCovered();
         updateOutOfParcours();
         updateCollisionDurationTime();
+    }
+
+    if (race_id != 0 || previous_race_id != 0) {
+        char message_buffer[20];
+        int active_race_id = (race_id != 0) ? race_id : previous_race_id;
+
+        if (servoMoveCommand) {
+            const char *message = "Mouvement de la tête";
+            client.publish(generateRaceTopic(message_buffer, sizeof(message_buffer), active_race_id, "message"), message);
+            servoMoveCommand = false;
+        }
+
+        if (headAngleCommand) {
+            const char *message = "Changement d'angle de la tête";
+            client.publish(generateRaceTopic(message_buffer, sizeof(message_buffer), active_race_id, "message"), message);
+            headAngleCommand = false;
+        }
+
+        if (ledAnimationCommand) {
+            const char *message = "Animation des leds";
+            client.publish(generateRaceTopic(message_buffer, sizeof(message_buffer), active_race_id, "message"), message);
+            ledAnimationCommand = false;
+        }
+
+        if (ledPrincipalColorCommand) {
+            const char *message = "Changement de couleur des leds";
+            client.publish(generateRaceTopic(message_buffer, sizeof(message_buffer), active_race_id, "message"), message);
+            ledPrincipalColorCommand = false;   
+        }
+
+        if (buzzerAlarmCommand) {
+            const char *message = "Changement de l'état de l'alarme";
+            client.publish(generateRaceTopic(message_buffer, sizeof(message_buffer), active_race_id, "message"), message);
+            buzzerAlarmCommand = false;
+        }
+
+        if (buzzerVariableCommand) {
+            const char *message = "Changement des variables de l'alarme";
+            client.publish(generateRaceTopic(message_buffer, sizeof(message_buffer), active_race_id, "message"), message);
+            buzzerVariableCommand = false;
+        }
+        
+        if (videoCommand) {
+            const char *message = "Activation/Désactivation de la vidéo";
+            client.publish(generateRaceTopic(message_buffer, sizeof(message_buffer), active_race_id, "message"), message);
+            videoCommand = false;
+        }
+        
+        if (autoModeCommand) {
+            const char *message = "Activate/Désactivation du mode auto";
+            client.publish(generateRaceTopic(message_buffer, sizeof(message_buffer), active_race_id, "message"), message);
+            autoModeCommand = false;
+        }
+
+        if (raceStartingModeCommand) {
+            const char *message = "Début de course";
+            client.publish(generateRaceTopic(message_buffer, sizeof(message_buffer), active_race_id, "message"), message);
+            raceStartingModeCommand = false;
+        }
     }
 
     if (newRaceMessage)
@@ -205,20 +273,9 @@ void loop()
 
         newDistanceMessage = false;
     }
-    if (newCollision) {
-        newCollision = false; // réinitialisation du flag
-
-        char message[20];
-        snprintf(message, sizeof(message), "Collision durée: %u", collision_duration);
-
-        const char* topic = "esp32/collision";
-        client.publish(topic, message);
-
-        // Remise à zéro de la durée de la collision après l'envoi du message
-        collision_duration = 0;
-    }
     
     long now = millis();
+
     if (now - last_message > mqtt_interval_ms)
     {
         last_message = now;
@@ -285,6 +342,10 @@ void loop()
                 generateRaceTopic(message_buffer, sizeof(message_buffer), previous_race_id, "status"),
                 payload
             );
+
+            const char *message = "Fin de course";
+            client.publish(generateRaceTopic(message_buffer, sizeof(message_buffer), previous_race_id, "message"), message);
+
 
             must_end_race_api_signal = false;
         }
@@ -382,6 +443,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         {
             int data = doc["data"];
             Emotion_SetMode(data);
+            servoMoveCommand = true;
         }
         else if (3 == cmd)
         {
@@ -390,11 +452,13 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             int angle_1 = angles[1];
             Servo_1_Angle(angle_0); // Set the Angle value of servo 1 to 0 to 180°
             Servo_2_Angle(angle_1);
+            headAngleCommand = true;
         }
         else if (4 == cmd)
         {
             int led_mode = doc["data"];
             WS2812_SetMode(led_mode);
+            ledAnimationCommand = true;
         }
         else if (5 == cmd)
         {
@@ -405,6 +469,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             int led_color_3 = led_color[3];
 
             WS2812_Set_Color_1(led_color_0, led_color_1, led_color_2, led_color_3);
+            ledPrincipalColorCommand = true;
         }
         else if (6 == cmd)
         {
@@ -420,6 +485,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         {
             bool alarm = doc["data"] == 1;
             Buzzer_Alarm(alarm);
+            buzzerAlarmCommand = true;
         }
         else if (8 == cmd)
         {
@@ -427,11 +493,13 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             int alarm_on = buzzer_data[0] == 1;
             int frequency_hz = buzzer_data[1];
             Buzzer_Variable(alarm_on, frequency_hz);
+            buzzerVariableCommand = true;
         }
         else if (9 == cmd)
         {
             bool video_activation = doc["data"] == 1;
             videoFlag = video_activation;
+            videoCommand = true;
         } 
         else if (10 == cmd) 
         {
@@ -452,6 +520,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
                 Car_SetMode(0);
                 // Motor_Move(0, 0, 0, 0);  // Stop the vehicle
             }
+
+            autoModeCommand = true;
         }
         else if (11 == cmd)
         {
@@ -473,12 +543,15 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             race_mode = data[1] == 1;
 
             if (! race_mode && wasInRaceMode) {
+
                 resetRaceDataToDefault();
 
                 must_end_race_api_signal = true;
             }
 
             if (race_mode && race_id != 0) {
+                raceStartingModeCommand = true;
+
                 race_start_time = millis();
             }
         }
