@@ -332,10 +332,12 @@ void loop()
             }
         }
     
+                // Condition pour terminer la course
         if (must_end_race_api_signal && previous_race_id != 0) {
-            // Envoyer un signal à l'API Golang pour arrêter la course
+            endRace(); 
 
             char message_buffer[64];
+
             const char *payload = "completed";
 
             client.publish(
