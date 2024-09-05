@@ -332,10 +332,13 @@ void loop()
             }
         }
     
+        // Condition pour terminer la course
         if (must_end_race_api_signal && previous_race_id != 0) {
-            // Envoyer un signal à l'API Golang pour arrêter la course
+            updateDistanceCovered();
+            updateAverageSpeed();     // Mettre à jour la vitesse moyenne après la dernière distance ajoutée
 
             char message_buffer[64];
+
             const char *payload = "completed";
 
             client.publish(
