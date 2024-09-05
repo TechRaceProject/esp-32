@@ -22,8 +22,6 @@ extern int previous_race_id; // ID de la course précédente
 float getConstantSpeed(); // Fonction pour calculer la vitesse constante
 void updateDistanceCovered(); // Fonction pour mettre à jour la distance parcourue
 void updateAverageSpeed(); // Fonction pour calculer la vitesse moyenne du vehicule
-void endRace(); // Fonction pour arrêter la course et calculer la vitesse moyenne
-float getFinalAverageSpeed(); // Fonction pour obtenir la vitesse moyenne finale
 void updateOutOfParcours(); // Fonction pour calculer le nombre de sorties de route
 void updateCollisionDurationTime(); // Fonction pour calculer le nombre de collisions
 char* generateRaceTopic(char* buffer, size_t bufferSize, int raceId, const char* suffix); // Fonction pour générer un topic

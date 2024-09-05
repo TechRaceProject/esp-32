@@ -67,26 +67,6 @@ void updateAverageSpeed() {
     }
 }
 
-// Fonction pour terminer la course et calculer la vitesse moyenne finale
-void endRace() {
-    unsigned long race_end_time = millis();
-    float race_duration = (race_end_time - race_start_time) / 1000.0;
-
-    if (race_duration > 0) {
-        average_speed = distance_covered / race_duration;
-    } else {
-        average_speed = 0;
-    }
-
-    race_mode = false;
-    must_end_race_api_signal = true;
-}
-
-float getFinalAverageSpeed() {
-    return average_speed;
-}
-
-
 // nombre de secondes durant lesquelles la voiture était hors du parcours
 void updateOutOfParcours() {
     unsigned long current_time = millis();

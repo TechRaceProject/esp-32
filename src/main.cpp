@@ -332,9 +332,10 @@ void loop()
             }
         }
     
-                // Condition pour terminer la course
+        // Condition pour terminer la course
         if (must_end_race_api_signal && previous_race_id != 0) {
-            endRace(); 
+            updateDistanceCovered();  // Forcer une dernière mise à jour de la distance
+            updateAverageSpeed();     // Mettre à jour la vitesse moyenne après la dernière distance ajoutée
 
             char message_buffer[64];
 
